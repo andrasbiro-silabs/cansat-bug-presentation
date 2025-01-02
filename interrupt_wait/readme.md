@@ -15,11 +15,11 @@ Bug: No error handling on `RAIL_StartTx()`
 ```c
   RAIL_Status_t status = RAIL_StartTx(rail_handle, 25, RAIL_TX_OPTION_RESEND, NULL);
   if ( status == RAIL_STATUS_NO_ERROR ){
-    app_log_info("Tx start\n");
-    state = S_TX_WAIT;
+      app_log_info("Tx start\n");
+      state = S_TX_WAIT;
   } else {
-    app_log_info("Tx start error: x%04x\n", status);
-    state = S_TX_WAIT;
+      app_log_info("Tx start fail %d\n", status);
+      while(1);
   }
 ```
 Bug: channel 25 does not exist.
@@ -27,21 +27,19 @@ Bug: channel 25 does not exist.
 ## A new error
 
 ```c
-  RAIL_Status_t status = RAIL_StartTx(rail_handle, 20, RAIL_TX_OPTION_RESEND, NULL);
+  RAIL_Status_t status = RAIL_StartTx(rail_handle, 25, RAIL_TX_OPTION_RESEND, NULL);
   if ( status == RAIL_STATUS_NO_ERROR ){
-    app_log_info("Tx start\n");
-    state = S_TX_WAIT;
+      app_log_info("Tx start\n");
+      state = S_TX_WAIT;
   } else {
-    app_log_info("Tx start error: x%04lx\n", status);
+      app_log_info("Tx start fail %d\n", status);
+      while(1);
   }
 ```
 
 ## Find the issue with logic analyzer
 
-```
-/******************************************************************************
- * Application state machine, called infinitely
- *****************************************************************************/
+```c
 void app_process_action(RAIL_Handle_t rail_handle)
 {
   switch( state ){
@@ -49,11 +47,12 @@ void app_process_action(RAIL_Handle_t rail_handle)
       RAIL_Status_t status = RAIL_StartTx(rail_handle, 20, RAIL_TX_OPTION_RESEND, NULL);
       GPIO_PinOutSet(gpioPortC, 5);
       if ( status == RAIL_STATUS_NO_ERROR ){
-        app_log_info("Tx start\n");
-        state = S_TX_WAIT;
-        GPIO_PinOutToggle(gpioPortC, 7);
+          app_log_info("Tx start\n");
+          state = S_TX_WAIT;
+          GPIO_PinOutToggle(gpioPortC, 7);
       } else {
-        app_log_info("Tx start error: x%04lx\n", status);
+          app_log_info("Tx start fail %d\n", status);
+          while(1);
       }
       break;
     case S_TX_COMPLETE:
@@ -73,8 +72,8 @@ void sl_rail_util_on_event(RAIL_Handle_t rail_handle, RAIL_Events_t events)
 {
   (void) rail_handle;
   if ( events & RAIL_EVENTS_TX_COMPLETION ){
-      GPIO_PinOutClear(gpioPortC, 5);
       state = S_TX_COMPLETE;
+      GPIO_PinOutClear(gpioPortC, 5);
   }
 }
 ```
@@ -105,16 +104,13 @@ Problem: Critical section is way too big, printing from critical section.
   CORE_DECLARE_IRQ_STATE;
   CORE_ENTER_CRITICAL();
   RAIL_Status_t status = RAIL_StartTx(rail_handle, 20, RAIL_TX_OPTION_RESEND, NULL);
+  GPIO_PinOutSet(gpioPortC, 5);
   if ( status == RAIL_STATUS_NO_ERROR ){
-    state = S_TX_WAIT;
+      state = S_TX_WAIT;
+      GPIO_PinOutToggle(gpioPortC, 7);
   }
   CORE_EXIT_CRITICAL();
-  app_log_info("Tx start");
-  if ( status == RAIL_STATUS_NO_ERROR ){
-      printf("\n");
-  } else {
-      printf(" error: x%04lx\n", status);
-  }
+  app_log_info("Tx Start %04lx\n", status);
 ```
 
 Problem: This can be solved without critical sections.
@@ -124,10 +120,9 @@ Problem: This can be solved without critical sections.
 ```c
   state = S_TX_WAIT;
   RAIL_Status_t status = RAIL_StartTx(rail_handle, 20, RAIL_TX_OPTION_RESEND, NULL);
-  if ( status == RAIL_STATUS_NO_ERROR ){
-    app_log_info("Tx start\n");
-  } else {
-    state = S_TX;
-    app_log_info("Tx start error: x%04lx\n", status);
+  GPIO_PinOutSet(gpioPortC, 5);
+  if ( status != RAIL_STATUS_NO_ERROR ){
+      state = S_TX;
   }
+  app_log_info("Tx Start %04lx\n", status);
 ```
