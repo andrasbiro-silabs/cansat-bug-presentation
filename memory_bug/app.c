@@ -32,7 +32,6 @@ void app_init(void)
   for(i=0; i<30; i++){
       array[i] = i;
   }
-  app_log_info("%d\n", array2[0]);
   for(i=0; i<30; i++){
       app_log("array[%d]=%d\n", i, array[i]);
   }
