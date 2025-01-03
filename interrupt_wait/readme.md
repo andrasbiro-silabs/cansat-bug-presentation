@@ -13,7 +13,7 @@ Bug: No error handling on `RAIL_StartTx()`
 ## Error handling fixed
 
 ```c
-  RAIL_Status_t status = RAIL_StartTx(rail_handle, 21, RAIL_TX_OPTION_RESEND, NULL);
+  RAIL_Status_t status = RAIL_StartTx(rail_handle, 25, RAIL_TX_OPTION_RESEND, NULL);
   if ( status == RAIL_STATUS_NO_ERROR ){
       app_log_info("Tx start\n");
       state = S_TX_WAIT;
