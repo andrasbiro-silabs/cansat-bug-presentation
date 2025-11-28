@@ -79,9 +79,13 @@ void app_process_action(RAIL_Handle_t rail_handle)
 {
   switch( state ){
     case S_TX:
-      RAIL_StartTx(rail_handle, 25, RAIL_TX_OPTION_RESEND, NULL);
-      app_log_info("Tx start\n");
-      state = S_TX_WAIT;
+      RAIL_Status_t status = RAIL_StartTx(rail_handle, 20, RAIL_TX_OPTION_RESEND, NULL);
+      if ( status == RAIL_STATUS_NO_ERROR ){
+          app_log_info("Tx start\n");
+          state = S_TX_WAIT;
+      } else {
+          app_log_info("Tx start fail 0x%04lx\n", status);
+      }
       break;
     case S_TX_COMPLETE:
       app_log_info("Tx complete\n");
